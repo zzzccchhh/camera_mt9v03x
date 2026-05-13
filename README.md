@@ -38,6 +38,17 @@
 | SCL | D2 | IIC 时钟（与 UART5_RX 共用） |
 | SDA | C12 | IIC 数据（与 UART5_TX 共用） |
 
+### OLED SSD1306 (4线软件SPI)
+| OLED引脚 | GPIO   | 管脚  | 说明   |
+|----------|--------|-------|--------|
+| SCL      | GPIOE  | PE11  | SPI时钟 |
+| SDA      | GPIOE  | PE13  | SPI数据  |
+| RST      | GPIOE  | PE15  | 复位    |
+| DC       | GPIOD  | PD9   | 数据/命令 |
+| CS       | GPIOD  | PD11  | 片选    |
+
+OLED驱动位于 `src/oled_ssd1306/`
+
 ## 编译烧录
 
 使用 VSCode + EIDE 插件，Ctrl+Shift+B 调用构建任务：
