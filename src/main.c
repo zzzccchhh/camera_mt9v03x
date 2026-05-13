@@ -45,9 +45,10 @@ int main(void)
         {
             mt9v03x_finish_flag = 0;
 
-#if (1 == CAM_DEBUG_VIEW)
+        #if (1 == CAM_DEBUG_VIEW)
             seekfree_assistant_camera_send();
-#endif
+
+        #endif
         }
     }
 }
