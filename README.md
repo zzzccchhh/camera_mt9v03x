@@ -59,9 +59,33 @@ OLED驱动位于 `src/oled_ssd1306/`
 - `build and flash` - 编译并烧录
 - `clean` - 清理
 
-## PC 端显示
+## 显示模式
 
-1. 下载 seekfree_assistant 逐飞助手
+### OLED 显示模式 (CAM_DEBUG_VIEW = 0)
+
+使用 SSD1306 OLED (128x64) 显示二值化图像。支持两种阈值方式：
+
+**固定阈值模式：**
+默认使用固定阈值 127 进行二值化，简单但无法适应光照变化。
+
+**Otsu 自动阈值模式：**
+使用 Otsu 大津法自动计算最优阈值。根据图像灰度分布最大化类间方差，找到最佳分割点。
+
+- 每 10 帧计算一次 Otsu 阈值，避免频繁计算开销
+- 阈值变化带有平滑处理（70% 收敛），避免显示闪烁
+- 算法使用 uint64 避免中间计算溢出
+
+Otsu 算法位于 `src/otsu.c`，主要函数：
+
+```c
+uint8 otsu_threshold(const uint8 *image, uint16 width, uint16 height);
+```
+
+### PC 显示模式 (CAM_DEBUG_VIEW = 1)
+
+通过 UART3 发送图像到 PC，使用 seekfree_assistant 逐飞助手显示。
+
+1. 下载逐飞助手
 2. 选择对应串口，波特率 921600
 3. 点击连接，图像自动显示
 
@@ -70,6 +94,9 @@ OLED驱动位于 `src/oled_ssd1306/`
 ```
 ch32v307/
 ├── src/              # 主程序
+│   ├── main.c        # 主程序入口
+│   ├── otsu.c/h      # Otsu自动阈值算法
+│   └── oled_ssd1306/ # OLED SSD1306驱动
 ├── sdk/              # WCH SDK
 ├── zf_common/        # 通用组件
 ├── zf_driver/        # 底层驱动
