@@ -6,13 +6,45 @@
  */
 
 #include "zf_common_headfile.h"
+#include "oled_ssd1306.h"
+#include "oled_spi_.h"
 
 #define LED1                    (A15)
 
 // ==================== 模式选择 ====================
 // 1: 发送图像到PC显示模式
-// 0: 形状检测 fill 结果打印模式
-#define CAM_DEBUG_VIEW          (1)
+// 0: OLED显示二值化图像模式
+#define CAM_DEBUG_VIEW          (0)
+
+// 二值化阈值，可调整
+#define BINARY_THRESHOLD       (127)
+
+// 缩放显示：将MT9V03X图像(188x120)缩放到OLED(128x64)并二值化
+void oled_display_binary_scaled(const uint8 *image, uint16 img_w, uint16 img_h, uint8 threshold)
+{
+    uint16 x, y;
+    uint16 src_x, src_y;
+    uint8 pixel;
+
+    for (y = 0; y < 64; y++)
+    {
+        for (x = 0; x < 128; x++)
+        {
+            // 计算源图像坐标（等比缩放）
+            src_x = x * img_w / 128;
+            src_y = y * img_h / 64;
+
+            // 读取灰度像素并二值化
+            pixel = image[src_y * img_w + src_x] > threshold ? 1 : 0;
+
+            // 使用ssd1306驱动绘制像素
+            ssd1306_drawPixel(x, y, pixel);
+        }
+    }
+
+    // 刷新显示
+    ssd1306_updateScreen();
+}
 
 int main(void)
 {
@@ -27,6 +59,12 @@ int main(void)
         gpio_toggle_level(LED1);
         system_delay_ms(500);
     }
+
+#if (0 == CAM_DEBUG_VIEW)
+    // OLED初始化（使用ssd1306驱动）
+    ssd1306_Init(SSD1306_SWITCHCAPVCC);
+    ssd1306_clearScreen();
+#endif
 
 #if (1 == CAM_DEBUG_VIEW)
     // 图像模式,发送图像给电脑软件
@@ -47,7 +85,9 @@ int main(void)
 
         #if (1 == CAM_DEBUG_VIEW)
             seekfree_assistant_camera_send();
-
+        #else
+            // 显示二值化图像到OLED（使用自定义ssd1306驱动）
+            oled_display_binary_scaled(mt9v03x_image[0], MT9V03X_W, MT9V03X_H, BINARY_THRESHOLD);
         #endif
         }
     }
