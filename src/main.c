@@ -23,30 +23,40 @@ static uint8 frame_counter = 0;
 static uint8 prev_threshold = 127;
 #define THRESHOLD_SMOOTH (0.7f)
 
-// 缩放显示：将MT9V03X图像(188x120)缩放到OLED(128x64)并二值化
+// OLED显示缓冲 (128x64像素 = 1024字节, 按页组织: 128宽 x 8页高)
+static uint8 oled_display_buffer[128 * 8];
+
+// 缩放显示：将MT9V03X图像缩放到OLED并二值化,直接写入显示缓冲后刷新
 void oled_display_binary_scaled(const uint8 *image, uint16 img_w, uint16 img_h, uint8 threshold)
 {
     uint16 x, y;
     uint16 src_x, src_y;
-    uint8 pixel;
 
+    // 清空显示缓冲
+    memset(oled_display_buffer, 0, sizeof(oled_display_buffer));
+
+    // 填充二值化数据到显示缓冲 (SSD1306按页组织,每页8行像素)
     for (y = 0; y < 64; y++)
     {
+        src_y = y * img_h / 64;
+        uint8 page = y / 8;
+        uint8 row_bit = y % 8;
+
         for (x = 0; x < 128; x++)
         {
-            // 计算源图像坐标（等比缩放）
             src_x = x * img_w / 128;
-            src_y = y * img_h / 64;
+            uint8 pixel = image[src_y * img_w + src_x] > threshold ? 1 : 0;
 
-            // 读取灰度像素并二值化
-            pixel = image[src_y * img_w + src_x] > threshold ? 1 : 0;
-
-            // 使用ssd1306驱动绘制像素
-            ssd1306_drawPixel(x, y, pixel);
+            if (pixel) {
+                oled_display_buffer[page * 128 + x] |= (1 << row_bit);
+            }
         }
     }
 
-    // 刷新显示
+    // 复制到SSD1306显示缓冲
+    memcpy(ssd1306_getBuffer(), oled_display_buffer, sizeof(oled_display_buffer));
+
+    // 整屏刷新
     ssd1306_updateScreen();
 }
 
