@@ -66,11 +66,7 @@ OLED驱动位于 `src/oled_ssd1306/`
 - 阈值变化带有平滑处理（70% 收敛），避免显示闪烁
 - 算法使用 uint64 避免中间计算溢出
 
-Otsu 算法位于 `src/otsu.c`，主要函数：
-
-```c
-uint8 otsu_threshold(const uint8 *image, uint16 width, uint16 height);
-```
+Otsu 算法位于 `src/otsu.c`
 
 ### PC 显示模式 (CAM_DEBUG_VIEW = 1)
 
