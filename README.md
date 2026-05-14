@@ -51,13 +51,7 @@ OLED驱动位于 `src/oled_ssd1306/`
 
 ## 编译烧录
 
-使用 VSCode + EIDE 插件，Ctrl+Shift+B 调用构建任务：
-
-- `build` - 编译
-- `rebuild` - 重新编译
-- `flash` - 烧录
-- `build and flash` - 编译并烧录
-- `clean` - 清理
+使用 VSCode + EIDE 插件。
 
 ## 显示模式
 
