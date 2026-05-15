@@ -16,6 +16,8 @@
 #define BOUNDARY_LINE_START_ROW 32
 #define BOUNDARY_LINE_ROWS      32
 #define STEP_THRESHOLD          4   // 差分阈值，用于噪声检测（3-5像素）
+#define DEVIATION_THRESHOLD     8   // 偏差阈值，用于直线拟合时过滤离群点
+#define MAX_VALID_POINTS        32  // 最大有效点数
 
 // 二值化图像数组 (行优先: [y][x], y=0-63, x=0-127)
 extern uint8 binary_image[DISPLAY_H][DISPLAY_W];
@@ -28,11 +30,24 @@ extern uint8 boundary_image[DISPLAY_H][DISPLAY_W];
 extern uint8 left_boundary_line[BOUNDARY_LINE_ROWS];
 extern uint8 right_boundary_line[BOUNDARY_LINE_ROWS];
 
+// 直线拟合结果结构体
+typedef struct {
+    float k;                          // 斜率
+    float b;                          // 截距 (y = k*x + b)
+    uint8 valid_count;                // 有效点数
+    uint8 valid_indices[MAX_VALID_POINTS];  // 有效点索引
+} LineFitResult;
+
+// 拟合结果全局变量
+extern LineFitResult left_line_fit;
+extern LineFitResult right_line_fit;
+
 // 显示模式枚举
 typedef enum {
     DISPLAY_BINARY,       // 显示原始二值图
     DISPLAY_BOUNDARY,     // 显示边界扫描图
-    DISPLAY_BOUNDARY_LINE // 显示提取的边界线
+    DISPLAY_BOUNDARY_LINE, // 显示提取的边界线
+    DISPLAY_FIT_LINE      // 显示拟合直线
 } DisplayMode;
 
 // 初始化图像处理模块
@@ -63,5 +78,13 @@ void image_toggle_display_mode(void);
 
 // 显示当前模式图像到OLED
 void image_display(void);
+
+// 直线拟合函数
+// 对边界线进行预拟合：先拟合，剔除偏差过大点，再拟合
+void pre_fit_boundary_lines(void);
+
+// 获取拟合直线上指定行对应的x坐标
+uint8 get_fit_left_x(uint8 row);
+uint8 get_fit_right_x(uint8 row);
 
 #endif

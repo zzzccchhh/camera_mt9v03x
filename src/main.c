@@ -96,6 +96,25 @@ int main(void)
             // 边界线提取（对下面32行进行去噪、单值化、中值滤波）
             extract_boundary_line();
             median_filter_boundary_line(5);
+            pre_fit_boundary_lines();
+            // 输出拟合结果（直接输出放大1000的整数，完全避免浮点格式化）
+            char line_buf[30];
+            int lk = (int)(left_line_fit.k * 1000);
+            int lb = (int)(left_line_fit.b * 1000);
+            int rk = (int)(right_line_fit.k * 1000);
+            int rb = (int)(right_line_fit.b * 1000);
+            int len = zf_sprintf(line_buf, "Lk=%d\r\n", lk);
+            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
+            len = zf_sprintf(line_buf, "Lb=%d\r\n", lb);
+            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
+            len = zf_sprintf(line_buf, "Lc=%d\r\n", left_line_fit.valid_count);
+            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
+            len = zf_sprintf(line_buf, "Rk=%d\r\n", rk);
+            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
+            len = zf_sprintf(line_buf, "Rb=%d\r\n", rb);
+            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
+            len = zf_sprintf(line_buf, "Rc=%d\r\n", right_line_fit.valid_count);
+            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
             // 显示图像
             image_display();
         #endif
