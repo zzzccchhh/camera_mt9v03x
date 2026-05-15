@@ -93,6 +93,9 @@ int main(void)
             image_binarize(mt9v03x_image[0], MT9V03X_W, MT9V03X_H, cached_threshold);
             // 边界检测
             extract_boundary();
+            // 边界线提取（对下面32行进行去噪、单值化、中值滤波）
+            extract_boundary_line();
+            median_filter_boundary_line(5);
             // 显示图像
             image_display();
         #endif
