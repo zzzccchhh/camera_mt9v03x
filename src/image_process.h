@@ -1,6 +1,6 @@
 /*
- * Image Processing Module
- * Binary thresholding and boundary extraction for MT9V03X camera
+ * 图像处理模块
+ * MT9V03X摄像头二值化与边界提取
  */
 
 #ifndef __IMAGE_PROCESS_H__
@@ -8,60 +8,60 @@
 
 #include "zf_common_headfile.h"
 
-// Image dimensions for OLED display
+// OLED显示图像尺寸
 #define DISPLAY_W   (128)
 #define DISPLAY_H   (64)
 
-// Boundary line processing constants (for bottom 32 rows: y=32~63)
+// 边界线处理常量（下半部分32行: y=32~63）
 #define BOUNDARY_LINE_START_ROW 32
 #define BOUNDARY_LINE_ROWS      32
-#define STEP_THRESHOLD          4   // Delta-x threshold for noise detection (3-5 pixels)
+#define STEP_THRESHOLD          4   // 差分阈值，用于噪声检测（3-5像素）
 
-// Binary image array (row-major: [y][x], y=0-63, x=0-127)
+// 二值化图像数组 (行优先: [y][x], y=0-63, x=0-127)
 extern uint8 binary_image[DISPLAY_H][DISPLAY_W];
 
-// Boundary image array (row-major: [y][x], y=0-63, x=0-127)
+// 边界图像数组 (行优先: [y][x], y=0-63, x=0-127)
 extern uint8 boundary_image[DISPLAY_H][DISPLAY_W];
 
-// Boundary line arrays (left/right x-coordinate for each row in bottom 32 rows)
-// Value 127 means invalid/no boundary detected
+// 边界线数组（下半部分32行每行的左右边界x坐标）
+// 值127表示无效/未检测到边界
 extern uint8 left_boundary_line[BOUNDARY_LINE_ROWS];
 extern uint8 right_boundary_line[BOUNDARY_LINE_ROWS];
 
-// Display mode enumeration
+// 显示模式枚举
 typedef enum {
-    DISPLAY_BINARY,       // Display original binary image
-    DISPLAY_BOUNDARY,      // Display boundary image
-    DISPLAY_BOUNDARY_LINE // Display extracted boundary lines
+    DISPLAY_BINARY,       // 显示原始二值图
+    DISPLAY_BOUNDARY,     // 显示边界扫描图
+    DISPLAY_BOUNDARY_LINE // 显示提取的边界线
 } DisplayMode;
 
-// Initialize image processing module
+// 初始化图像处理模块
 void image_process_init(void);
 
-// Binarize camera image to 128x64 display resolution
+// 将摄像头图像二值化到128x64显示分辨率
 void image_binarize(const uint8 *camera_img, uint16 img_w, uint16 img_h, uint8 threshold);
 
-// Extract boundary using 8-neighborhood algorithm
+// 使用八邻域算法提取边界
 void extract_boundary(void);
 
-// Extract boundary lines from boundary_image (bottom 32 rows, y=32~63)
-// Applies: row uniqueness constraint, differential noise filtering
+// 从boundary_image提取边界线（下半部分32行, y=32~63）
+// 应用：行唯一性约束、差分噪声过滤
 void extract_boundary_line(void);
 
-// Apply sliding window median filter to boundary lines
+// 对边界线应用滑动窗口中值滤波
 void median_filter_boundary_line(uint8 window_size);
 
-// Get boundary x-coordinate for a given row (0-31 internally, maps to y=32~63)
+// 获取指定行的边界x坐标（内部使用0-31，映射到y=32~63）
 uint8 get_left_boundary_x(uint8 row);
 uint8 get_right_boundary_x(uint8 row);
 
-// Get current display mode
+// 获取当前显示模式
 DisplayMode image_get_display_mode(void);
 
-// Toggle display mode (cycles: BINARY -> BOUNDARY -> BOUNDARY_LINE -> BINARY)
+// 切换显示模式（循环：二值图 -> 边界图 -> 边界线图 -> 二值图）
 void image_toggle_display_mode(void);
 
-// Display current mode image to OLED
+// 显示当前模式图像到OLED
 void image_display(void);
 
 #endif
