@@ -26,6 +26,9 @@ static uint8 prev_threshold = 127;
 // OLED显示缓冲 (128x64像素 = 1024字节, 按页组织: 128宽 x 8页高)
 static uint8 oled_display_buffer[128 * 8];
 
+// 二值图像数组 (行优先: [y][x], y=0-63, x=0-127)
+static uint8 binary_image[64][128];
+
 // 缩放显示：将MT9V03X图像缩放到OLED并二值化,直接写入显示缓冲后刷新
 void oled_display_binary_scaled(const uint8 *image, uint16 img_w, uint16 img_h, uint8 threshold)
 {
@@ -35,19 +38,28 @@ void oled_display_binary_scaled(const uint8 *image, uint16 img_w, uint16 img_h, 
     // 清空显示缓冲
     memset(oled_display_buffer, 0, sizeof(oled_display_buffer));
 
-    // 填充二值化数据到显示缓冲 (SSD1306按页组织,每页8行像素)
+    // 填充二值化数据到数组 (SSD1306按页组织,每页8行像素)
     for (y = 0; y < 64; y++)
     {
         src_y = y * img_h / 64;
+
+        for (x = 0; x < 128; x++)
+        {
+            src_x = x * img_w / 128;
+            binary_image[y][x] = image[src_y * img_w + src_x] > threshold ? 1 : 0;
+        }
+    }
+
+    // 从二进制数组重建显示缓冲
+    memset(oled_display_buffer, 0, sizeof(oled_display_buffer));
+    for (y = 0; y < 64; y++)
+    {
         uint8 page = y / 8;
         uint8 row_bit = y % 8;
 
         for (x = 0; x < 128; x++)
         {
-            src_x = x * img_w / 128;
-            uint8 pixel = image[src_y * img_w + src_x] > threshold ? 1 : 0;
-
-            if (pixel) {
+            if (binary_image[y][x]) {
                 oled_display_buffer[page * 128 + x] |= (1 << row_bit);
             }
         }
