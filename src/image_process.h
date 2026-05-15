@@ -59,7 +59,7 @@ extern uint8 boundary_image[DISPLAY_H][DISPLAY_W];
 // 左边界数组
 // 下标：0~31 对应 y=32~63
 // 数值：对应行的边界x坐标
-// 127表示无效
+// 255表示无效
 extern uint8 left_boundary_line[BOUNDARY_LINE_ROWS];
 
 // 右边界数组
@@ -206,5 +206,8 @@ uint8 get_fit_left_x(uint8 row);
 
 // 获取拟合右边界在指定行的x坐标
 uint8 get_fit_right_x(uint8 row);
+
+// 计算中心线目标X坐标（高鲁棒性：双边/单边/全丢场景）
+uint8 calculate_track_center(uint8 row);
 
 #endif

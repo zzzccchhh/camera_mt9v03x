@@ -30,7 +30,7 @@ uint8 boundary_image[DISPLAY_H][DISPLAY_W];
 static DisplayMode current_display_mode = DISPLAY_BINARY;
 
 // 边界线数组 (下半部分32行: y=32~63)
-// 值127表示无效/未检测到边界
+// 值255表示无效/未检测到边界
 uint8 left_boundary_line[BOUNDARY_LINE_ROWS];
 uint8 right_boundary_line[BOUNDARY_LINE_ROWS];
 
@@ -114,8 +114,8 @@ void image_process_init(void)
     memset(binary_image, 0, sizeof(binary_image));
     memset(boundary_image, 0, sizeof(boundary_image));
     memset(oled_display_buffer, 0, sizeof(oled_display_buffer));
-    memset(left_boundary_line, 127, sizeof(left_boundary_line));
-    memset(right_boundary_line, 127, sizeof(right_boundary_line));
+    memset(left_boundary_line, 255, sizeof(left_boundary_line));
+    memset(right_boundary_line, 255, sizeof(right_boundary_line));
 
     memset(&left_line_fit, 0, sizeof(left_line_fit));
     memset(&right_line_fit, 0, sizeof(right_line_fit));
@@ -173,25 +173,30 @@ void extract_boundary(void)
 }
 
 // 从boundary_image提取边界线（下半部分32行: y=32~63）
-// 每行只取一个点：左边界取该行最左边界点，右边界取该行最右边界点
+// 融入【防串线交叉过滤机制】
 void extract_boundary_line(void)
 {
     int x, y;
 
-    // 重置边界线数组
+    // 设定一个下半部分赛道的最小可能像素宽度（128总宽下，近景赛道宽度通常>30，设15为绝对死线）
+    const uint8 MIN_TRACK_WIDTH = 15;
+
+    // 1. 重置边界线数组，使用 255 作为无效标志
     for (y = 0; y < BOUNDARY_LINE_ROWS; y++) {
-        left_boundary_line[y] = 127;
-        right_boundary_line[y] = 127;
+        left_boundary_line[y] = 255;
+        right_boundary_line[y] = 255;
     }
 
-    // 扫描下半部分32行 (y=32至y=63)
+    // 2. 逐行扫描
     for (y = 0; y < BOUNDARY_LINE_ROWS; y++) {
         int actual_y = BOUNDARY_LINE_START_ROW + y;
+        uint8 lx = 255;
+        uint8 rx = 255;
 
         // 左边界：从左往右找第一个边界点
         for (x = 0; x < DISPLAY_W; x++) {
             if (boundary_image[actual_y][x] == 1) {
-                left_boundary_line[y] = (uint8)x;
+                lx = (uint8)x;
                 break;
             }
         }
@@ -199,22 +204,46 @@ void extract_boundary_line(void)
         // 右边界：从右往左找第一个边界点
         for (x = DISPLAY_W - 1; x >= 0; x--) {
             if (boundary_image[actual_y][x] == 1) {
-                right_boundary_line[y] = (uint8)x;
+                rx = (uint8)x;
                 break;
             }
         }
+
+        // ==================== 核心：防串线过滤 ====================
+        if (lx != 255 && rx != 255) {
+            // 如果左线跑到了右线右边，或者两线距离近得不合常理
+            if (lx >= rx || (rx - lx) < MIN_TRACK_WIDTH) {
+
+                // 判定谁是内鬼：如果相撞位置在图像右半边，说明左线丢了，左线串到了右线上
+                if (lx > (DISPLAY_W / 2)) {
+                    lx = 255; // 强行抹除左线
+                }
+                // 如果相撞位置在图像左半边，说明右线丢了，右线串到了左线上
+                else {
+                    rx = 255; // 强行抹除右线
+                }
+            }
+
+            // 边缘硬限制补充：防止死死贴边（x=0或127）影响拟合
+            if (lx <= 1)           lx = 255;
+            if (rx >= DISPLAY_W-2) rx = 255;
+        }
+
+        // 最终存入全局数组
+        left_boundary_line[y] = lx;
+        right_boundary_line[y] = rx;
     }
 
-    // 差分噪声过滤（去除孤立跳变点）
+    // 3. 差分噪声过滤（注意：已将原本的 127 修改为 255）
     for (y = 1; y < BOUNDARY_LINE_ROWS; y++) {
-        if (left_boundary_line[y] != 127 && left_boundary_line[y - 1] != 127) {
+        if (left_boundary_line[y] != 255 && left_boundary_line[y - 1] != 255) {
             int16 delta = abs((int16)left_boundary_line[y] - (int16)left_boundary_line[y - 1]);
             if (delta > STEP_THRESHOLD) {
                 left_boundary_line[y] = left_boundary_line[y - 1];
             }
         }
 
-        if (right_boundary_line[y] != 127 && right_boundary_line[y - 1] != 127) {
+        if (right_boundary_line[y] != 255 && right_boundary_line[y - 1] != 255) {
             int16 delta = abs((int16)right_boundary_line[y] - (int16)right_boundary_line[y - 1]);
             if (delta > STEP_THRESHOLD) {
                 right_boundary_line[y] = right_boundary_line[y - 1];
@@ -245,7 +274,7 @@ void median_filter_boundary_line(uint8 window_size)
         for (j = -half_window; j <= half_window; j++) {
             int idx = i + j;
             if (idx >= 0 && idx < BOUNDARY_LINE_ROWS) {
-                if (temp_left[idx] != 127) {
+                if (temp_left[idx] != 255) {
                     values[count++] = temp_left[idx];
                 }
             }
@@ -274,7 +303,7 @@ void median_filter_boundary_line(uint8 window_size)
         for (j = -half_window; j <= half_window; j++) {
             int idx = i + j;
             if (idx >= 0 && idx < BOUNDARY_LINE_ROWS) {
-                if (temp_right[idx] != 127) {
+                if (temp_right[idx] != 255) {
                     values[count++] = temp_right[idx];
                 }
             }
@@ -304,7 +333,7 @@ uint8 get_left_boundary_x(uint8 row)
     if (row < BOUNDARY_LINE_ROWS) {
         return left_boundary_line[row];
     }
-    return 127;
+    return 255;
 }
 
 uint8 get_right_boundary_x(uint8 row)
@@ -312,7 +341,7 @@ uint8 get_right_boundary_x(uint8 row)
     if (row < BOUNDARY_LINE_ROWS) {
         return right_boundary_line[row];
     }
-    return 127;
+    return 255;
 }
 
 // 获取当前显示模式
@@ -347,12 +376,12 @@ void image_display(void)
             uint8 page = actual_y / 8;
             uint8 row_bit = actual_y % 8;
 
-            if (left_boundary_line[y] != 127) {
+            if (left_boundary_line[y] != 255) {
                 x = left_boundary_line[y];
                 oled_display_buffer[page * DISPLAY_W + x] |= (1 << row_bit);
             }
 
-            if (right_boundary_line[y] != 127) {
+            if (right_boundary_line[y] != 255) {
                 x = right_boundary_line[y];
                 oled_display_buffer[page * DISPLAY_W + x] |= (1 << row_bit);
             }
@@ -419,7 +448,7 @@ static void pre_fit_boundary_line(uint8 *boundary_line, LineFitResult *result)
     // 收集有效点
     // boundary_line[i] 表示该行的 x，i 表示 y
     for (i = 0; i < BOUNDARY_LINE_ROWS; i++) {
-        if (boundary_line[i] != 127) {
+        if (boundary_line[i] != 255) {
             x_points[valid_count] = boundary_line[i];
             y_points[valid_count] = i;
             valid_count++;
@@ -581,9 +610,9 @@ void fit_filter_boundary_lines(void)
 // 拟合模型: x = k*y + b
 uint8 get_fit_left_x(uint8 row)
 {
-    if (row >= BOUNDARY_LINE_ROWS) return 127;
-    if (left_lost_count >= LOST_FRAME_THRESHOLD) return 127;
-    if (left_fit_filter.count < 2) return 127;
+    if (row >= BOUNDARY_LINE_ROWS) return 255;
+    if (left_lost_count >= LOST_FRAME_THRESHOLD) return 255;
+    if (left_fit_filter.count < 2) return 255;
 
     float x = left_fit_filter.k_smooth * (float)row + left_fit_filter.b_smooth;
     if (x < 0.0f) return 0;
@@ -594,13 +623,40 @@ uint8 get_fit_left_x(uint8 row)
 
 uint8 get_fit_right_x(uint8 row)
 {
-    if (row >= BOUNDARY_LINE_ROWS) return 127;
-    if (right_lost_count >= LOST_FRAME_THRESHOLD) return 127;
-    if (right_fit_filter.count < 2) return 127;
+    if (row >= BOUNDARY_LINE_ROWS) return 255;
+    if (right_lost_count >= LOST_FRAME_THRESHOLD) return 255;
+    if (right_fit_filter.count < 2) return 255;
 
     float x = right_fit_filter.k_smooth * (float)row + right_fit_filter.b_smooth;
     if (x < 0.0f) return 0;
     if (x >= DISPLAY_W) return DISPLAY_W - 1;
 
     return (uint8)(x + 0.5f);
+}
+
+// 计算某一特定预瞄行 row 的中心线目标 X 坐标
+// 高鲁棒性中心线合成逻辑：双边完好用中点，单边丢线用平移，全丢返回屏幕中心
+uint8 calculate_track_center(uint8 row)
+{
+    uint8 fit_left  = get_fit_left_x(row);
+    uint8 fit_right = get_fit_right_x(row);
+
+    // 下半部分某行的半宽大概是 35 像素
+    uint8 half_track_width = 35;
+
+    // 情况 1：双边都有，最理想状态
+    if (fit_left != 255 && fit_right != 255) {
+        return (fit_left + fit_right) / 2;
+    }
+    // 情况 2：左线丢了，右线完好（出弯场景）
+    else if (fit_left == 255 && fit_right != 255) {
+        return fit_right - half_track_width;
+    }
+    // 情况 3：右线丢了，左线完好
+    else if (fit_left != 255 && fit_right == 255) {
+        return fit_left + half_track_width;
+    }
+
+    // 情况 4：全丢，返回图像正中
+    return DISPLAY_W / 2;
 }

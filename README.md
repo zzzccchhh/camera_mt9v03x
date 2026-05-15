@@ -92,12 +92,14 @@ Dev=<偏差值>\r\n
 2. 选择对应串口，波特率 921600
 3. 点击连接，图像自动显示
 
+通过 DEBUG_UART 输出拟合参数：`Lk/Lb/Lc`（左线斜率/截距/有效点数）、`Rk/Rb/Rc`（右线）。
+
 ## 图像处理流程
 
 1. **Otsu 自动阈值**：每 10 帧计算一次最优阈值，带 70% 平滑收敛
 2. **二值化** (`image_binarize`)：将原始图像缩放到 128x64 分辨率并二值化
 3. **边界检测** (`extract_boundary`)：使用八邻域算法检测前景边界
-4. **边界线提取** (`extract_boundary_line`)：下半部分 32 行，每行取左右边界点
+4. **边界线提取** (`extract_boundary_line`)：下半部分 32 行，每行取左右边界点，含防串线交叉过滤
 5. **差分滤波** (`extract_boundary_line`)：去除跳变大于 4 的噪声点
 6. **中值滤波** (`median_filter_boundary_line`)：滑动窗口滤波
 7. **二次拟合** (`pre_fit_boundary_lines`)：最小二乘法拟合，剔除离群点，后再次拟合
@@ -121,6 +123,7 @@ x = k * y + b
 | `FIT_VALUE_DEVIATION` | 30 | 拒绝更新的偏差阈值 |
 | `LOST_FRAME_THRESHOLD` | 3 | 丢线判定帧数 |
 | `DEVIATION_CALC_ROW` | 8 | 偏差计算行（对应 y=40） |
+| `MIN_TRACK_WIDTH` | 15 | 防串线最小赛道宽度阈值 |
 
 ## 边界线与拟合
 
@@ -128,8 +131,19 @@ x = k * y + b
 - **拟合结果**：`left_line_fit`、`right_line_fit`（含 k、b、valid_count）
 - **平滑滤波**：`left_fit_filter`、`right_fit_filter`（含 k_smooth、b_smooth）
 
-OLED 模式下通过 DEBUG_UART 输出道路中心偏差值 `Dev`。
-PC 模式下通过 DEBUG_UART 输出拟合参数（Lk/Lb/Rk/Rb）及有效点计数（Lc/Rc）。
+### 无效值与防串线
+
+- **无效标志**：255（坐标最大 127，255 不会冲突）
+- **防串线机制**：当 `lx >= rx` 或间距 < `MIN_TRACK_WIDTH` 时，判定串线并抹除假边线
+- **边缘限制**：lx ≤ 1 或 rx ≥ 126 时判定为出界无效
+
+### 中心线合成
+
+`calculate_track_center(row)` 中心线计算：
+
+- 双边完好 → `(左线 + 右线) / 2`
+- 单边丢线 → 平移半宽(35)补偿
+- 全丢 → 返回屏幕中心 64
 
 ## 模块说明
 
