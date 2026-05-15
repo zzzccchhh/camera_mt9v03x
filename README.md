@@ -73,6 +73,17 @@ OLED驱动位于 `src/oled_ssd1306/`
 
 使用 SSD1306 OLED (128x64) 显示处理后的图像。
 
+通过 DEBUG_UART 输出道路中心偏差值 `Dev`，格式：
+```
+Dev=<偏差值>\r\n
+```
+
+- 正值：偏右
+- 负值：偏左
+- 0：边线无效或位于中心
+
+偏差计算位置由 `DEVIATION_CALC_ROW` 宏定义（默认 row=8 对应 y=40）。
+
 ### PC 显示模式 (CAM_DEBUG_VIEW = 1)
 
 通过 UART3 发送图像到 PC，使用 seekfree_assistant 逐飞助手显示。
@@ -109,6 +120,7 @@ x = k * y + b
 | `FIT_FILTER_WINDOW` | 3 | 滑动平均窗口 |
 | `FIT_VALUE_DEVIATION` | 30 | 拒绝更新的偏差阈值 |
 | `LOST_FRAME_THRESHOLD` | 3 | 丢线判定帧数 |
+| `DEVIATION_CALC_ROW` | 8 | 偏差计算行（对应 y=40） |
 
 ## 边界线与拟合
 
@@ -116,6 +128,7 @@ x = k * y + b
 - **拟合结果**：`left_line_fit`、`right_line_fit`（含 k、b、valid_count）
 - **平滑滤波**：`left_fit_filter`、`right_fit_filter`（含 k_smooth、b_smooth）
 
+OLED 模式下通过 DEBUG_UART 输出道路中心偏差值 `Dev`。
 PC 模式下通过 DEBUG_UART 输出拟合参数（Lk/Lb/Rk/Rb）及有效点计数（Lc/Rc）。
 
 ## 模块说明

@@ -98,24 +98,20 @@ int main(void)
             median_filter_boundary_line(5);
             pre_fit_boundary_lines();
             fit_filter_boundary_lines();
-            // 输出拟合结果（滤波后的值）
-            char line_buf[30];
-            int lk = (int)(left_fit_filter.k_smooth * 1000);
-            int lb = (int)(left_fit_filter.b_smooth * 1000);
-            int rk = (int)(right_fit_filter.k_smooth * 1000);
-            int rb = (int)(right_fit_filter.b_smooth * 1000);
-            int len = zf_sprintf(line_buf, "Lk=%d\r\n", lk);
-            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
-            len = zf_sprintf(line_buf, "Lb=%d\r\n", lb);
-            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
-            len = zf_sprintf(line_buf, "Lc=%d\r\n", left_fit_filter.count);
-            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
-            len = zf_sprintf(line_buf, "Rk=%d\r\n", rk);
-            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
-            len = zf_sprintf(line_buf, "Rb=%d\r\n", rb);
-            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
-            len = zf_sprintf(line_buf, "Rc=%d\r\n", right_fit_filter.count);
-            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)line_buf, len);
+            // 计算 y=40 位置左右拟合线的中间值，与屏幕中心做差
+            uint8 left_x = get_fit_left_x(DEVIATION_CALC_ROW);
+            uint8 right_x = get_fit_right_x(DEVIATION_CALC_ROW);
+            int16 deviation = 0;
+            char dev_buf[20];
+            // 任一侧无效时输出0
+            if (left_x == 255 || right_x == 255 || left_x == 0 || right_x == 0) {
+                deviation = 0;
+            } else {
+                int16 middle_x = (left_x + right_x) / 2;
+                deviation = middle_x - 64;  // 64 is screen center
+            }
+            int len = zf_sprintf(dev_buf, "Dev=%d\r\n", deviation);
+            uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)dev_buf, len);
             // 显示图像
             image_display();
         #endif

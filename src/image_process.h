@@ -14,6 +14,11 @@
 #define DISPLAY_W                  128
 #define DISPLAY_H                  64
 
+// 偏差计算使用的图像行（对应实际y坐标）
+// row范围：0~31，对应 y=32~63
+// 例如：DEVIATION_CALC_ROW = 8 对应 y = 8 + 32 = 40
+#define DEVIATION_CALC_ROW         8
+
 // ==================== 边界线处理参数 ====================
 
 // 仅处理图像下半部分（y = 32 ~ 63）
