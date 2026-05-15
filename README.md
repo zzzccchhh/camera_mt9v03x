@@ -61,34 +61,17 @@ OLED驱动位于 `src/oled_ssd1306/`
 - `CAM_DEBUG_VIEW = 0`：OLED 显示模式
 - `CAM_DEBUG_VIEW = 1`：PC 显示模式（通过 UART3）
 
+### 显示模式切换
+
+按 PE8 按键循环切换 5 种显示模式：
+
+```
+二值图 → 边界图 → 边界线 → 拟合直线 → 二值图 ...
+```
+
 ### OLED 显示模式 (CAM_DEBUG_VIEW = 0)
 
-使用 SSD1306 OLED (128x64) 显示二值化图像或边界图。按 PE8 按键切换显示模式。
-
-**图像处理流程：**
-
-1. **二值化** (`image_binarize`)：将原始图像缩放到 128x64 分辨率并二值化
-2. **边界检测** (`extract_boundary`)：使用八邻域算法检测前景边界
-3. **显示** (`image_display`)：根据当前模式显示二值图或边界图
-
-**Otsu 自动阈值：**
-使用 Otsu 大津法自动计算最优阈值。根据图像灰度分布最大化类间方差，找到最佳分割点。
-
-- 每 10 帧计算一次 Otsu 阈值，避免频繁计算开销
-- 阈值变化带有平滑处理（70% 收敛），避免显示闪烁
-- 算法使用 uint64 避免中间计算溢出
-
-**边界检测算法 (八邻域)：**
-目标像素为前景（1）且周围 8 邻域中存在背景（0）时，标记为边界点。
-
-```
-  p[-1,-1] p[0,-1] p[1,-1]
-  p[-1, 0]    P    p[1, 0]
-  p[-1, 1] p[0, 1] p[1, 1]
-```
-
-**PE8 按键切换：**
-按下 PE8（低电平）在原始二值图和边界图之间切换显示。
+使用 SSD1306 OLED (128x64) 显示处理后的图像。
 
 ### PC 显示模式 (CAM_DEBUG_VIEW = 1)
 
@@ -98,34 +81,51 @@ OLED驱动位于 `src/oled_ssd1306/`
 2. 选择对应串口，波特率 921600
 3. 点击连接，图像自动显示
 
+## 图像处理流程
+
+1. **Otsu 自动阈值**：每 10 帧计算一次最优阈值，带 70% 平滑收敛
+2. **二值化** (`image_binarize`)：将原始图像缩放到 128x64 分辨率并二值化
+3. **边界检测** (`extract_boundary`)：使用八邻域算法检测前景边界
+4. **边界线提取** (`extract_boundary_line`)：下半部分 32 行，每行取左右边界点
+5. **差分滤波** (`extract_boundary_line`)：去除跳变大于 4 的噪声点
+6. **中值滤波** (`median_filter_boundary_line`)：滑动窗口滤波
+7. **二次拟合** (`pre_fit_boundary_lines`)：最小二乘法拟合，剔除离群点，后再次拟合
+8. **滑动平均滤波** (`fit_filter_boundary_lines`)：递推平均平滑
+
+### 直线拟合模型
+
+```
+x = k * y + b
+```
+
+其中 x 为列坐标，y 为行坐标（下半部分 0~31 对应实际行 32~63）。
+
+## 关键参数
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `STEP_THRESHOLD` | 4 | 相邻边界点最大跳变 |
+| `DEVIATION_THRESHOLD` | 4 | 离群点判定阈值 |
+| `FIT_FILTER_WINDOW` | 3 | 滑动平均窗口 |
+| `FIT_VALUE_DEVIATION` | 30 | 拒绝更新的偏差阈值 |
+| `LOST_FRAME_THRESHOLD` | 3 | 丢线判定帧数 |
+
+## 边界线与拟合
+
+- **边界线数组**：`left_boundary_line[32]`、`right_boundary_line[32]`
+- **拟合结果**：`left_line_fit`、`right_line_fit`（含 k、b、valid_count）
+- **平滑滤波**：`left_fit_filter`、`right_fit_filter`（含 k_smooth、b_smooth）
+
+PC 模式下通过 DEBUG_UART 输出拟合参数（Lk/Lb/Rk/Rb）及有效点计数（Lc/Rc）。
+
 ## 模块说明
 
 | 文件 | 功能 |
 |------|------|
 | `src/main.c` | 主程序入口 |
 | `src/otsu.c/h` | Otsu 自动阈值算法 |
-| `src/image_process.c/h` | 图像二值化、边界检测、显示控制 |
+| `src/image_process.c/h` | 图像处理（二值化、边界检测、直线拟合） |
 | `src/oled_ssd1306/` | OLED SSD1306 驱动 |
-
-### image_process 模块接口
-
-```c
-// 初始化
-void image_process_init(void);
-
-// 二值化（缩放到128x64）
-void image_binarize(const uint8 *camera_img, uint16 img_w, uint16 img_h, uint8 threshold);
-
-// 八邻域边界检测
-void extract_boundary(void);
-
-// 显示模式切换
-DisplayMode image_get_display_mode(void);
-void image_toggle_display_mode(void);
-
-// 显示到OLED
-void image_display(void);
-```
 
 ## 目录结构
 
@@ -134,7 +134,7 @@ ch32v307/
 ├── src/              # 主程序
 │   ├── main.c        # 主程序入口
 │   ├── otsu.c/h      # Otsu自动阈值算法
-│   ├── image_process.c/h  # 图像处理模块（二值化、边界检测）
+│   ├── image_process.c/h  # 图像处理（二值化、边界、拟合）
 │   └── oled_ssd1306/ # OLED SSD1306驱动
 ├── sdk/              # WCH SDK
 ├── zf_common/        # 通用组件
