@@ -73,16 +73,16 @@ OLED驱动位于 `src/oled_ssd1306/`
 
 使用 SSD1306 OLED (128x64) 显示处理后的图像。
 
-通过 DEBUG_UART 输出道路中心偏差值 `Dev`，格式：
+通过 DEBUG_UART 输出赛道偏差值 `Dev`，格式：
 ```
-Dev=<偏差值>\r\n
+Dev=±X.XXX\r\n
 ```
 
 - 正值：偏右
 - 负值：偏左
-- 0：边线无效或位于中心
+- 0：位于中心或边线无效
 
-偏差计算位置由 `DEVIATION_CALC_ROW` 宏定义（默认 row=8 对应 y=40）。
+偏差计算：在 y=35,40,45 三个位置获取中心点，拟合直线 x=k*y+b，返回 k 值作为偏差。
 
 ### PC 显示模式 (CAM_DEBUG_VIEW = 1)
 
@@ -122,8 +122,8 @@ x = k * y + b
 | `FIT_FILTER_WINDOW` | 3 | 滑动平均窗口 |
 | `FIT_VALUE_DEVIATION` | 30 | 拒绝更新的偏差阈值 |
 | `LOST_FRAME_THRESHOLD` | 3 | 丢线判定帧数 |
-| `DEVIATION_CALC_ROW` | 8 | 偏差计算行（对应 y=40） |
-| `MIN_TRACK_WIDTH` | 15 | 防串线最小赛道宽度阈值 |
+| `MIN_TRACK_WIDTH` | 15 | 防串线最小赛道宽度 |
+| `DEVIATION_CALC_ROW_35/40/45` | 3/8/13 | 偏差计算行（对应 y=35/40/45） |
 
 ## 边界线与拟合
 
@@ -142,8 +142,17 @@ x = k * y + b
 `calculate_track_center(row)` 中心线计算：
 
 - 双边完好 → `(左线 + 右线) / 2`
-- 单边丢线 → 平移半宽(35)补偿
+- 左丢右好 → `右线 - 半宽(35)`
+- 右丢左好 → `左线 + 半宽(35)`
 - 全丢 → 返回屏幕中心 64
+
+### 偏差计算
+
+`calculate_deviation()` 在 y=35,40,45 三个位置获取中心点，拟合直线 x=k*y+b，返回 k 值作为偏差。
+
+- k > 0：偏右（赛道向右倾斜）
+- k < 0：偏左（赛道向左倾斜）
+- k ≈ 0：位于中心
 
 ## 模块说明
 

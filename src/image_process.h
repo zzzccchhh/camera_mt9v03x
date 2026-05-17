@@ -19,6 +19,12 @@
 // 例如：DEVIATION_CALC_ROW = 8 对应 y = 8 + 32 = 40
 #define DEVIATION_CALC_ROW         8
 
+// 三个偏差计算行
+#define DEVIATION_CALC_ROW_35      3   // y = 35
+#define DEVIATION_CALC_ROW_40      8   // y = 40
+#define DEVIATION_CALC_ROW_45      13  // y = 45
+#define DEVIATION_FIT_POINTS       3   // 拟合点数
+
 // ==================== 边界线处理参数 ====================
 
 // 仅处理图像下半部分（y = 32 ~ 63）
@@ -209,5 +215,9 @@ uint8 get_fit_right_x(uint8 row);
 
 // 计算中心线目标X坐标（高鲁棒性：双边/单边/全丢场景）
 uint8 calculate_track_center(uint8 row);
+
+// 计算赛道偏差值
+// 在y=35,40,45三个位置获取中心点，拟合直线x=k*y+b，返回k值作为偏差（有正负）
+float calculate_deviation(void);
 
 #endif

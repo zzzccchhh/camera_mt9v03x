@@ -98,11 +98,31 @@ int main(void)
             median_filter_boundary_line(5);
             pre_fit_boundary_lines();
             fit_filter_boundary_lines();
-            // 计算 y=40 位置的中心线目标X坐标，与屏幕中心做差
-            uint8 center_x = calculate_track_center(DEVIATION_CALC_ROW);
-            int16 deviation = (int16)center_x - 64;  // 64 is screen center
-            char dev_buf[20];
-            int len = zf_sprintf(dev_buf, "Dev=%d\r\n", deviation);
+            // 计算赛道偏差（y=35,40,45三个位置中心点拟合直线，返回k值作为偏差）
+            float deviation = calculate_deviation();
+            char dev_buf[28];
+            // 手动格式化避免zf_sprintf的%f问题
+            int val = (int)(deviation * 1000);  // 放大1000倍，保留3位小数
+            uint8 sign_char = (val < 0) ? '-' : '+';
+            if (val < 0) val = -val;
+            uint16 int_part = val / 1000;
+            uint16 frac_part = val % 1000;
+            // 手动组装字符串
+            uint8 pos = 0;
+            dev_buf[pos++] = 'D';
+            dev_buf[pos++] = 'e';
+            dev_buf[pos++] = 'v';
+            dev_buf[pos++] = sign_char;
+            dev_buf[pos++] = (uint8)('0' + int_part / 100);
+            dev_buf[pos++] = (uint8)('0' + (int_part / 10) % 10);
+            dev_buf[pos++] = (uint8)('0' + int_part % 10);
+            dev_buf[pos++] = '.';
+            dev_buf[pos++] = (uint8)('0' + (frac_part / 100) % 10);
+            dev_buf[pos++] = (uint8)('0' + (frac_part / 10) % 10);
+            dev_buf[pos++] = (uint8)('0' + frac_part % 10);
+            dev_buf[pos++] = '\r';
+            dev_buf[pos++] = '\n';
+            int len = pos;
             uart_write_buffer(DEBUG_UART_INDEX, (const uint8*)dev_buf, len);
             // 显示图像
             image_display();

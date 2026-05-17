@@ -660,3 +660,31 @@ uint8 calculate_track_center(uint8 row)
     // 情况 4：全丢，返回图像正中
     return DISPLAY_W / 2;
 }
+
+// 计算赛道偏差值
+// 在y=35,40,45三个位置获取中心点，拟合直线x=k*y+b
+// 返回k值作为偏差（理想k=0，所以偏差就是k本身，有正负）
+float calculate_deviation(void)
+{
+    uint8 center_x[DEVIATION_FIT_POINTS];
+    uint8 y_points[DEVIATION_FIT_POINTS];
+    uint8 rows[DEVIATION_FIT_POINTS] = {
+        DEVIATION_CALC_ROW_35,
+        DEVIATION_CALC_ROW_40,
+        DEVIATION_CALC_ROW_45
+    };
+    uint8 i;
+    float k, b;
+
+    // 获取三个位置的中心x坐标
+    for (i = 0; i < DEVIATION_FIT_POINTS; i++) {
+        center_x[i] = calculate_track_center(rows[i]);
+        y_points[i] = rows[i];
+    }
+
+    // 拟合直线 x = k*y + b
+    least_squares_fit(y_points, center_x, DEVIATION_FIT_POINTS, &k, &b);
+
+    // 返回k值作为偏差（理想情况下赛道中心线是垂直的，k=0）
+    return k;
+}
