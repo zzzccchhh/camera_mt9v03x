@@ -1,8 +1,3 @@
-/*
- * 图像处理模块
- * MT9V03X摄像头二值化与边界提取
- */
-
 #include "image_process.h"
 #include "oled_ssd1306.h"
 #include "oled_spi_.h"
